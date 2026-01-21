@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Llama 3.1 Quiz Master</title>
+    <title>Llama 3 Quiz Master</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.3.136/pdf.min.mjs" type="module"></script>
     <style>
@@ -65,7 +65,7 @@
             <header class="text-center mb-12">
                 <h1 class="text-5xl md:text-6xl font-black mb-4 tracking-tighter">
                     <span class="bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-                        Llama 3.1 Quiz Pro
+                        Llama 3 Quiz Pro
                     </span>
                 </h1>
                 <p class="text-slate-400 text-lg font-medium">Generate quizzes instantly from text or PDF</p>
@@ -136,7 +136,7 @@
         <!-- LOADING VIEW -->
         <div id="loading-view" class="hidden py-24 text-center">
             <div class="w-24 h-24 border-8 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin mx-auto mb-8"></div>
-            <h2 class="text-3xl font-black">Llama 3.1 is Processing...</h2>
+            <h2 class="text-3xl font-black">Llama 3 is Processing...</h2>
             <p class="text-slate-500 mt-2">Connecting to Groq API for rapid inference</p>
         </div>
 
@@ -180,7 +180,7 @@
     <script type="module">
         // --- CONSTANTS ---
         const GROQ_API_KEY = "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";
-        const GROQ_MODEL = "llama-3.1-8b-instant";
+        const GROQ_MODEL = "llama3-70b-8192";
 
         // --- APP STATE ---
         let currentQuiz = null;
@@ -201,6 +201,8 @@
 
         // --- PDF PROCESSING ---
         async function getPdfText(file) {
+            // Load PDF.js from the browser's global scope if it's there, or assume the module script above handles it.
+            // Using a standard dynamic import for the worker.
             const pdfjsLib = window['pdfjs-dist/build/pdf'];
             pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.3.136/pdf.worker.min.mjs';
             
