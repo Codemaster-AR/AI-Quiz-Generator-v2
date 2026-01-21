@@ -72,12 +72,11 @@
         <!-- SETUP VIEW -->
         <div id="setup-view" class="fade-in">
             <header class="text-center mb-12">
-                <h1 class="text-5xl md:text-6xl font-black mb-2 tracking-tighter">
+                <h1 class="text-5xl md:text-6xl font-black mb-4 tracking-tighter">
                     <span class="bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
                         Llama 3.1 Quiz Pro
                     </span>
                 </h1>
-                <div class="inline-block px-3 py-1 rounded-full bg-slate-800 border border-slate-700 text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">v2</div>
                 <p class="text-slate-400 text-lg font-medium">Generate quizzes instantly from text or PDF</p>
             </header>
 
@@ -226,7 +225,6 @@
 
         let currentQuiz = null;
         let userAnswers = {};
-        let openEndedEvaluations = {};
         let inputMode = 'text';
         let currentDifficulty = 'Medium';
         let negativeMarking = false;
@@ -257,14 +255,14 @@
         }
 
         async function fetchLlamaQuiz(text, count, difficulty, mixed) {
-            const prompt = `You are a professional teacher. Generate a ${mixed ? 'mixed format (some Multiple Choice, some Open Ended)' : 'multiple-choice'} quiz from this text: ${text.substring(0, 30000)}
+            const prompt = `You are a professional teacher. Generate a ${mixed ? 'mixed format (some MCQ, some Open Ended)' : 'multiple-choice'} quiz from this text: ${text.substring(0, 30000)}
             
             Specifications:
             - Number of questions: ${count}
             - Difficulty: ${difficulty}
             - Format Rules: 
               ${mixed ? '- Questions must be a mix. 70% MCQ, 30% Open-ended.' : '- All questions must be MCQ.'}
-              - Return JSON with this EXACT structure: {"questions": [{"type": "mcq"|"open", "question": "...", "options": ["A","B","C","D"](MCQ only), "answer": "The correct answer or ideal model answer for open ended"}]}`;
+              - Return JSON: {"questions": [{"type": "mcq"|"open", "q": "...", "o": ["A","B","C","D"](only if mcq), "a": "correct answer or ideal model answer"}]}`;
 
             const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
                 method: 'POST',
@@ -272,7 +270,7 @@
                 body: JSON.stringify({
                     model: GROQ_MODEL,
                     messages: [
-                        { role: "system", content: "You are a specialized quiz generator. Always output valid JSON using the exact keys specified: 'type', 'question', 'options', 'answer'." },
+                        { role: "system", content: "You are a specialized quiz generator. Always output JSON." },
                         { role: "user", content: prompt }
                     ],
                     response_format: { type: "json_object" },
@@ -286,50 +284,12 @@
             return content;
         }
 
-        async function evaluateOpenEnded(quiz, answers) {
-            const openQuestions = quiz.questions
-                .map((q, i) => ({ ...q, index: i, user_answer: answers[i] || "" }))
-                .filter(q => q.type === 'open');
-
-            if (openQuestions.length === 0) return {};
-
-            const prompt = `You are an AI grader. Compare the user's answers to the ideal answers provided.
-            IMPORTANT: Be lenient. Accept responses that match the meaning or are pretty similar to the expected interpretation.
-            
-            Questions and Answers to Grade:
-            ${JSON.stringify(openQuestions)}
-            
-            Return JSON: {"evaluations": [{"index": number, "is_correct": boolean, "feedback": "brief reason why"}]}`;
-
-            const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    model: GROQ_MODEL,
-                    messages: [
-                        { role: "system", content: "You are a fair and lenient grader. Always output JSON." },
-                        { role: "user", content: prompt }
-                    ],
-                    response_format: { type: "json_object" },
-                    temperature: 0.3
-                })
-            });
-
-            if (!response.ok) return {};
-            const data = await response.json();
-            const results = JSON.parse(data.choices[0].message.content).evaluations;
-            
-            const map = {};
-            results.forEach(r => map[r.index] = r);
-            return map;
-        }
-
-        async function generateFeedback(quiz, answers, evaluations) {
+        async function generateFeedback(quiz, answers) {
             const performance = quiz.questions.map((q, i) => ({
-                question: q.question,
+                question: q.q,
                 user_answer: answers[i] || "No answer",
-                correct_answer: q.answer,
-                is_correct: q.type === 'mcq' ? answers[i] === q.answer : (evaluations[i]?.is_correct || false)
+                correct_answer: q.a,
+                is_correct: q.type === 'mcq' ? answers[i] === q.a : 'open'
             }));
 
             const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -338,8 +298,8 @@
                 body: JSON.stringify({
                     model: GROQ_MODEL,
                     messages: [
-                        { role: "system", content: "You are a supportive tutor. Provide a brief summary feedback (3 sentences) based on the user's performance." },
-                        { role: "user", content: `Performance: ${JSON.stringify(performance)}` }
+                        { role: "system", content: "You are a supportive tutor. Provide a brief (3-4 sentence) summary feedback based on the user's quiz performance. Mention areas they did well in and one thing to improve." },
+                        { role: "user", content: `Quiz Performance Data: ${JSON.stringify(performance)}` }
                     ],
                     temperature: 0.7
                 })
@@ -357,6 +317,7 @@
             const chatInput = get('chat-input');
             chatInput.value = '';
             chatInput.disabled = true;
+
             chatHistory.push({ role: 'user', content: message });
 
             try {
@@ -366,8 +327,8 @@
                     body: JSON.stringify({
                         model: GROQ_MODEL,
                         messages: [
-                            { role: "system", content: "You are a helpful study assistant. Answer questions about the quiz topic concisely." },
-                            ...chatHistory.slice(-6)
+                            { role: "system", content: "You are a helpful study assistant. Answer questions about the quiz topic. Keep it concise." },
+                            ...chatHistory.slice(-6) // Keep context
                         ],
                         temperature: 0.7
                     })
@@ -423,7 +384,7 @@
                         <span class="w-12 h-12 rounded-2xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-black text-xl flex-shrink-0">${i+1}</span>
                         <div class="flex-1">
                             <span class="text-[10px] font-black uppercase text-indigo-400/50 tracking-[.2em] mb-1 block">${q.type === 'open' ? 'Open Ended' : 'Multiple Choice'}</span>
-                            <p class="text-xl md:text-2xl font-bold text-slate-100 leading-snug">${q.question}</p>
+                            <p class="text-xl md:text-2xl font-bold text-slate-100 leading-snug">${q.q}</p>
                         </div>
                     </div>
                     ${inputHtml}
@@ -431,7 +392,7 @@
                 
                 if (q.type !== 'open') {
                     const optsDiv = card.querySelector(`#q-opts-${i}`);
-                    q.options.forEach(opt => {
+                    q.o.forEach(opt => {
                         const btn = document.createElement('button');
                         btn.className = 'option-btn w-full text-left p-6 rounded-2xl border-2 border-slate-700 bg-slate-900/40 hover:border-indigo-500/50 transition-all font-medium text-slate-300';
                         btn.textContent = opt;
@@ -454,26 +415,21 @@
             
             currentQuiz.questions.forEach((q, i) => {
                 const userAnswer = userAnswers[i] || "(Not Answered)";
-                const isCorrect = q.type === 'mcq' ? (userAnswer === q.answer) : (openEndedEvaluations[i]?.is_correct || false);
-                const aiReason = openEndedEvaluations[i]?.feedback || "";
+                const isCorrect = q.type === 'mcq' && userAnswer === q.a;
                 
                 const card = document.createElement('div');
-                card.className = `glass rounded-3xl p-6 border-l-8 ${isCorrect ? 'border-green-500' : 'border-red-500'} fade-in`;
+                card.className = `glass rounded-3xl p-6 border-l-8 ${q.type === 'open' ? 'border-indigo-500' : (isCorrect ? 'border-green-500' : 'border-red-500')}`;
                 
                 card.innerHTML = `
-                    <div class="flex justify-between items-start mb-2">
-                        <p class="font-bold text-lg text-slate-200">${i+1}. ${q.question}</p>
-                        <span class="text-[10px] font-black px-2 py-1 rounded bg-slate-800 border border-slate-700 ${isCorrect ? 'text-green-400' : 'text-red-400'} uppercase">${isCorrect ? 'Correct' : 'Incorrect'}</span>
-                    </div>
-                    ${aiReason ? `<p class="text-xs text-indigo-400/70 mb-4 bg-indigo-500/5 p-2 rounded-lg italic">AI Grader: ${aiReason}</p>` : ''}
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                    <p class="font-bold text-lg mb-2 text-slate-200">${i+1}. ${q.q}</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                         <div class="bg-slate-900/40 p-4 rounded-xl border border-slate-700">
                             <p class="text-xs uppercase font-black text-slate-500 mb-1">Your Answer</p>
-                            <p class="${!isCorrect ? 'text-red-400' : 'text-slate-100'} font-medium">${userAnswer}</p>
+                            <p class="${q.type === 'mcq' && !isCorrect ? 'text-red-400' : 'text-slate-100'} font-medium">${userAnswer}</p>
                         </div>
                         <div class="bg-slate-900/40 p-4 rounded-xl border border-slate-700">
                             <p class="text-xs uppercase font-black text-slate-500 mb-1">Ideal Answer</p>
-                            <p class="text-green-400 font-bold">${q.answer || 'No answer provided by AI'}</p>
+                            <p class="text-green-400 font-bold">${q.a}</p>
                         </div>
                     </div>
                 `;
@@ -557,42 +513,43 @@
         };
 
         get('submit-quiz').onclick = async () => {
-            switchView('loading');
-            get('loading-text').textContent = "Llama 3.1 is grading your answers...";
-            
-            try {
-                openEndedEvaluations = await evaluateOpenEnded(currentQuiz, userAnswers);
-                
-                let correctCount = 0;
-                let totalCount = currentQuiz.questions.length;
-                let mcqWrong = 0;
+            let correct = 0;
+            let answered = 0;
+            let totalMcq = 0;
 
-                currentQuiz.questions.forEach((q, i) => {
+            currentQuiz.questions.forEach((q, i) => {
+                const ans = userAnswers[i];
+                if (ans && ans.trim().length > 0) {
+                    answered++;
                     if (q.type === 'mcq') {
-                        if (userAnswers[i] === q.answer) correctCount++;
-                        else mcqWrong++;
-                    } else {
-                        if (openEndedEvaluations[i]?.is_correct) correctCount++;
+                        totalMcq++;
+                        if (ans === q.a) correct++;
                     }
-                });
+                } else if (q.type === 'mcq') {
+                    totalMcq++;
+                }
+            });
 
-                const finalScore = negativeMarking ? Math.max(0, correctCount - (mcqWrong * 0.25)) : correctCount;
-                get('score-val').textContent = finalScore % 1 === 0 ? finalScore : finalScore.toFixed(2);
-                get('correct-val').textContent = `${correctCount}/${totalCount}`;
-                
-                renderReview();
-                switchView('results');
+            const wrong = (totalMcq - correct);
+            const finalScore = negativeMarking ? Math.max(0, correct - (wrong * 0.25)) : correct;
+            get('score-val').textContent = finalScore % 1 === 0 ? finalScore : finalScore.toFixed(2);
+            get('correct-val').textContent = `${correct}/${totalMcq}`;
+            
+            renderReview();
+            switchView('results');
 
-                const feedback = await generateFeedback(currentQuiz, userAnswers, openEndedEvaluations);
-                get('ai-feedback-text').textContent = feedback;
-                get('ai-feedback-container').classList.remove('hidden');
-                get('ai-feedback-container').classList.add('fade-in');
+            // Feedback Generation
+            const feedbackContainer = get('ai-feedback-container');
+            const feedbackText = get('ai-feedback-text');
+            feedbackContainer.classList.add('hidden');
+            
+            const feedback = await generateFeedback(currentQuiz, userAnswers);
+            feedbackText.textContent = feedback;
+            feedbackContainer.classList.remove('hidden');
+            feedbackContainer.classList.add('fade-in');
 
-                chatHistory = [{ role: 'system', content: `The user just finished a quiz on: ${ (inputMode === 'text' ? get('context-input').value : extractedPdfText).substring(0, 1000) }. Their score was ${finalScore}/${totalCount}. Help them understand the concepts.` }];
-            } catch (err) {
-                console.error(err);
-                switchView('quiz');
-            }
+            // Initialize chat history with context
+            chatHistory = [{ role: 'system', content: `The user just finished a quiz on the following topic context: ${ (inputMode === 'text' ? get('context-input').value : extractedPdfText).substring(0, 1000) }. Their score was ${finalScore}. Help them understand any concepts.` }];
         };
 
         get('send-chat').onclick = () => handleChat(get('chat-input').value);
