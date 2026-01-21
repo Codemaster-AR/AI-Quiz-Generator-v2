@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Llama 3.1 Quiz Master</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.3.136/pdf.min.mjs" type="module"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+        
+        :root {
+            --primary: #6366f1;
+            --bg: #0f172a;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--bg);
+            color: #f8fafc;
+            margin: 0;
+            padding: 0;
+        }
+
+        .glass {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .fade-in { animation: fadeIn 0.4s ease-out forwards; }
+        @keyframes fadeIn { 
+            from { opacity: 0; transform: translateY(10px); } 
+            to { opacity: 1; transform: translateY(0); } 
+        }
+
+        input[type="range"] { accent-color: var(--primary); }
+        
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { 
+            background: #334155; 
+            border-radius: 10px; 
+        }
+
+        .btn-glow:hover {
+            box-shadow: 0 0 25px rgba(99, 102, 241, 0.5);
+        }
+
+        .option-btn.selected {
+            border-color: var(--primary);
+            background: rgba(99, 102, 241, 0.1);
+            color: #fff;
+            font-weight: 700;
+        }
+
+        .hidden { display: none; }
+    </style>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body class="min-h-screen">
+    <div id="app" class="max-w-4xl mx-auto p-4 md:p-8">
+        
+        <!-- SETUP VIEW -->
+        <div id="setup-view" class="fade-in">
+            <header class="text-center mb-12">
+                <h1 class="text-5xl md:text-6xl font-black mb-4 tracking-tighter">
+                    <span class="bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+                        Llama 3.1 Quiz Pro
+                    </span>
+                </h1>
+                <p class="text-slate-400 text-lg font-medium">Generate quizzes instantly from text or PDF</p>
+            </header>
+
+            <div class="glass rounded-[40px] shadow-2xl overflow-hidden">
+                <div class="flex bg-slate-900/50 p-2">
+                    <button id="tab-text" class="flex-1 py-4 rounded-[30px] font-bold bg-indigo-600 text-white shadow-lg transition-all">Context Text</button>
+                    <button id="tab-pdf" class="flex-1 py-4 rounded-[30px] font-bold text-slate-500 hover:text-slate-300 transition-all">PDF Upload</button>
+                </div>
+
+                <div class="p-8 space-y-8">
+                    <!-- Text Input -->
+                    <div id="text-section">
+                        <textarea id="context-input" class="w-full h-64 bg-slate-900/50 border border-slate-700 rounded-3xl p-6 focus:ring-4 focus:ring-indigo-500/20 outline-none transition-all placeholder:text-slate-600 text-lg resize-none custom-scrollbar" placeholder="Paste your study materials, articles, or notes here..."></textarea>
+                    </div>
+
+                    <!-- PDF Input -->
+                    <div id="pdf-section" class="hidden text-center">
+                        <div class="border-4 border-dashed border-slate-700 rounded-3xl p-16 bg-slate-900/30 hover:bg-slate-800/40 transition-all relative cursor-pointer">
+                            <input type="file" id="pdf-file" accept=".pdf" class="absolute inset-0 opacity-0 cursor-pointer">
+                            <svg class="w-16 h-16 text-slate-500 mb-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                            <p id="pdf-name" class="text-xl font-bold text-slate-300">Choose PDF Document</p>
+                        </div>
+                    </div>
+
+                    <!-- Config Grid -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div class="space-y-3">
+                            <label class="text-xs font-black text-slate-500 uppercase tracking-widest px-2">Question Count</label>
+                            <div class="bg-slate-900/50 p-4 rounded-3xl border border-slate-700 flex items-center justify-between gap-4">
+                                <input type="range" id="count-range" min="1" max="50" value="10" class="flex-1 h-2 bg-slate-700 rounded-lg cursor-pointer">
+                                <span id="count-label" class="bg-indigo-600 px-4 py-1 rounded-xl font-black text-xl min-w-[60px] text-center">10</span>
+                            </div>
+                        </div>
+
+                        <div class="space-y-3">
+                            <label class="text-xs font-black text-slate-500 uppercase tracking-widest px-2">Difficulty</label>
+                            <div class="flex bg-slate-900/50 p-1.5 rounded-3xl border border-slate-700" id="diff-selector">
+                                <button data-diff="Easy" class="flex-1 py-2 rounded-2xl text-xs font-bold transition-all text-slate-500">Easy</button>
+                                <button data-diff="Medium" class="flex-1 py-2 rounded-2xl text-xs font-bold transition-all bg-slate-700 text-white shadow-md">Medium</button>
+                                <button data-diff="Hard" class="flex-1 py-2 rounded-2xl text-xs font-bold transition-all text-slate-500">Hard</button>
+                                <button data-diff="Mixed" class="flex-1 py-2 rounded-2xl text-xs font-bold transition-all text-slate-500">Mixed</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Negative Marking Toggle -->
+                    <div class="flex items-center justify-between p-4 bg-slate-900/50 rounded-3xl border border-slate-700">
+                        <div class="px-2">
+                            <p class="font-bold text-slate-200">Negative Marking</p>
+                            <p class="text-xs text-slate-500">-0.25 points for wrong answers</p>
+                        </div>
+                        <button id="toggle-negative" class="w-14 h-8 bg-slate-700 rounded-full relative transition-all">
+                            <div id="negative-knob" class="absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-all"></div>
+                        </button>
+                    </div>
+
+                    <div id="error-msg" class="hidden p-5 bg-red-900/20 border-2 border-red-500/50 text-red-300 rounded-3xl font-bold"></div>
+
+                    <button id="generate-btn" class="btn-glow w-full py-6 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white font-black text-2xl rounded-[30px] shadow-2xl transition-all active:scale-95 border-t border-white/20">
+                        Generate Quiz
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- LOADING VIEW -->
+        <div id="loading-view" class="hidden py-24 text-center">
+            <div class="w-24 h-24 border-8 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin mx-auto mb-8"></div>
+            <h2 class="text-3xl font-black">Llama 3.1 is Processing...</h2>
+            <p class="text-slate-500 mt-2">Connecting to Groq API for rapid inference</p>
+        </div>
+
+        <!-- QUIZ VIEW -->
+        <div id="quiz-view" class="hidden fade-in space-y-8">
+            <header class="flex items-center justify-between border-b border-slate-700 pb-6 mb-8">
+                <div>
+                    <h2 class="text-4xl font-black text-indigo-400 tracking-tight">Active Quiz</h2>
+                    <p id="quiz-meta" class="text-slate-500 font-bold uppercase text-xs tracking-widest mt-1"></p>
+                </div>
+                <button id="cancel-quiz" class="px-6 py-2 bg-slate-800 rounded-xl font-bold hover:bg-slate-700 transition-all border border-slate-700">Cancel</button>
+            </header>
+            <div id="questions-container" class="space-y-8 pb-40"></div>
+            <div class="fixed bottom-8 left-0 right-0 px-4 flex justify-center z-40">
+                <button id="submit-quiz" class="btn-glow w-full max-w-lg py-5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-black text-xl rounded-2xl shadow-2xl hover:scale-105 transition-all">
+                    Submit Quiz
+                </button>
+            </div>
+        </div>
+
+        <!-- RESULTS VIEW -->
+        <div id="results-view" class="hidden fixed inset-0 bg-slate-900/98 backdrop-blur-xl z-50 flex items-center justify-center p-6">
+            <div class="max-w-md w-full glass rounded-[40px] p-10 text-center shadow-2xl space-y-8 border border-slate-700">
+                <h2 class="text-4xl font-black">Grade Summary</h2>
+                <div class="flex justify-around items-center bg-slate-900/50 p-8 rounded-3xl">
+                    <div>
+                        <p id="score-val" class="text-5xl font-black text-indigo-400">0</p>
+                        <p class="text-xs text-slate-500 font-bold uppercase mt-1">Final Score</p>
+                    </div>
+                    <div class="w-px h-12 bg-slate-700"></div>
+                    <div>
+                        <p id="correct-val" class="text-4xl font-bold text-green-400">0</p>
+                        <p class="text-xs text-slate-500 font-bold uppercase mt-1">Correct</p>
+                    </div>
+                </div>
+                <button id="restart-btn" class="w-full py-5 bg-indigo-600 text-white font-black text-xl rounded-2xl hover:bg-indigo-500 transition-all shadow-xl">New Quiz</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // --- CONSTANTS ---
+        const GROQ_API_KEY = "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";
+        const GROQ_MODEL = "llama-3.1-8b-instant";
+
+        // --- APP STATE ---
+        let currentQuiz = null;
+        let userAnswers = {};
+        let inputMode = 'text';
+        let currentDifficulty = 'Medium';
+        let negativeMarking = false;
+        let extractedPdfText = "";
+
+        // --- DOM REFERENCES ---
+        const get = (id) => document.getElementById(id);
+        const views = {
+            setup: get('setup-view'),
+            loading: get('loading-view'),
+            quiz: get('quiz-view'),
+            results: get('results-view')
+        };
+
+        // --- PDF PROCESSING ---
+        async function getPdfText(file) {
+            const pdfjsLib = window['pdfjs-dist/build/pdf'];
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.3.136/pdf.worker.min.mjs';
+            
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            let text = "";
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const content = await page.getTextContent();
+                text += content.items.map(it => it.str).join(' ') + "\n";
+            }
+            return text;
+        }
+
+        // --- API CALL ---
+        async function fetchLlamaQuiz(text, count, difficulty) {
+            const prompt = `You are a professional teacher. Generate a multiple-choice quiz from the text provided.
+            Text Content: ${text.substring(0, 30000)}
+            
+            Quiz Specifications:
+            - Number of questions: ${count}
+            - Difficulty: ${difficulty}
+            
+            You MUST return a JSON object with this exact structure:
+            {
+                "questions": [
+                    {
+                        "q": "The question string",
+                        "o": ["Option 1", "Option 2", "Option 3", "Option 4"],
+                        "a": "The exact string of the correct option"
+                    }
+                ]
+            }`;
+
+            const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${GROQ_API_KEY}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: GROQ_MODEL,
+                    messages: [
+                        { role: "system", content: "You are a specialized quiz generator. Always output JSON." },
+                        { role: "user", content: prompt }
+                    ],
+                    response_format: { type: "json_object" },
+                    temperature: 0.7
+                })
+            });
+
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.error?.message || 'Groq API request failed');
+            }
+
+            const data = await response.json();
+            const content = JSON.parse(data.choices[0].message.content);
+            if (!content.questions) throw new Error("Invalid response format from AI");
+            return content;
+        }
+
+        // --- UI UTILS ---
+        function switchView(name) {
+            Object.values(views).forEach(v => v.classList.add('hidden'));
+            views[name].classList.remove('hidden');
+            window.scrollTo(0,0);
+        }
+
+        function renderQuiz() {
+            const container = get('questions-container');
+            container.innerHTML = '';
+            userAnswers = {};
+            get('quiz-meta').textContent = `${currentQuiz.questions.length} Questions • ${currentDifficulty}`;
+
+            currentQuiz.questions.forEach((q, i) => {
+                const card = document.createElement('div');
+                card.className = 'glass rounded-[32px] p-8 shadow-xl fade-in';
+                card.style.animationDelay = `${i * 0.05}s`;
+                
+                card.innerHTML = `
+                    <div class="flex items-start gap-5 mb-8">
+                        <span class="w-12 h-12 rounded-2xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-black text-xl flex-shrink-0">${i+1}</span>
+                        <p class="text-xl md:text-2xl font-bold text-slate-100 leading-snug">${q.q}</p>
+                    </div>
+                    <div class="grid gap-3" id="q-opts-${i}"></div>
+                `;
+                
+                const optsDiv = card.querySelector(`#q-opts-${i}`);
+                q.o.forEach(opt => {
+                    const btn = document.createElement('button');
+                    btn.className = 'option-btn w-full text-left p-6 rounded-2xl border-2 border-slate-700 bg-slate-900/40 hover:border-indigo-500/50 transition-all font-medium text-slate-300';
+                    btn.textContent = opt;
+                    btn.onclick = () => {
+                        optsDiv.querySelectorAll('.option-btn').forEach(b => b.classList.remove('selected'));
+                        btn.classList.add('selected');
+                        userAnswers[i] = opt;
+                    };
+                    optsDiv.appendChild(btn);
+                });
+                container.appendChild(card);
+            });
+        }
+
+        // --- LISTENERS ---
+        get('tab-text').onclick = () => {
+            inputMode = 'text';
+            get('text-section').classList.remove('hidden');
+            get('pdf-section').classList.add('hidden');
+            get('tab-text').className = 'flex-1 py-4 rounded-[30px] font-bold bg-indigo-600 text-white shadow-lg';
+            get('tab-pdf').className = 'flex-1 py-4 rounded-[30px] font-bold text-slate-500 hover:text-slate-300';
+        };
+
+        get('tab-pdf').onclick = () => {
+            inputMode = 'pdf';
+            get('text-section').classList.add('hidden');
+            get('pdf-section').classList.remove('hidden');
+            get('tab-pdf').className = 'flex-1 py-4 rounded-[30px] font-bold bg-indigo-600 text-white shadow-lg';
+            get('tab-text').className = 'flex-1 py-4 rounded-[30px] font-bold text-slate-500 hover:text-slate-300';
+        };
+
+        get('count-range').oninput = (e) => get('count-label').textContent = e.target.value;
+
+        document.querySelectorAll('#diff-selector button').forEach(btn => {
+            btn.onclick = () => {
+                document.querySelectorAll('#diff-selector button').forEach(b => {
+                    b.classList.remove('bg-slate-700', 'text-white', 'shadow-md');
+                    b.classList.add('text-slate-500');
+                });
+                btn.classList.add('bg-slate-700', 'text-white', 'shadow-md');
+                btn.classList.remove('text-slate-500');
+                currentDifficulty = btn.dataset.diff;
+            };
+        });
+
+        get('toggle-negative').onclick = () => {
+            negativeMarking = !negativeMarking;
+            get('negative-knob').style.transform = negativeMarking ? 'translateX(24px)' : 'translateX(0)';
+            get('toggle-negative').style.backgroundColor = negativeMarking ? '#6366f1' : '#334155';
+        };
+
+        get('pdf-file').onchange = async (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                get('pdf-name').textContent = `Loading ${file.name}...`;
+                try {
+                    extractedPdfText = await getPdfText(file);
+                    get('pdf-name').textContent = file.name;
+                } catch (err) {
+                    get('pdf-name').textContent = "Failed to load PDF";
+                }
+            }
+        };
+
+        get('generate-btn').onclick = async () => {
+            const errBox = get('error-msg');
+            errBox.classList.add('hidden');
+            
+            const context = inputMode === 'text' ? get('context-input').value : extractedPdfText;
+            if (context.trim().length < 50) {
+                errBox.textContent = "Please provide more context (at least 50 characters).";
+                errBox.classList.remove('hidden');
+                return;
+            }
+
+            switchView('loading');
+            try {
+                const count = get('count-range').value;
+                currentQuiz = await fetchLlamaQuiz(context, count, currentDifficulty);
+                renderQuiz();
+                switchView('quiz');
+            } catch (err) {
+                errBox.textContent = `Llama 3 Error: ${err.message}`;
+                errBox.classList.remove('hidden');
+                switchView('setup');
+            }
+        };
+
+        get('submit-quiz').onclick = () => {
+            let correct = 0;
+            let answered = 0;
+            currentQuiz.questions.forEach((q, i) => {
+                if (userAnswers[i]) {
+                    answered++;
+                    if (userAnswers[i] === q.a) correct++;
+                }
+            });
+
+            const wrong = answered - correct;
+            const finalScore = negativeMarking 
+                ? Math.max(0, correct - (wrong * 0.25)) 
+                : correct;
+
+            get('score-val').textContent = finalScore % 1 === 0 ? finalScore : finalScore.toFixed(2);
+            get('correct-val').textContent = correct;
+            switchView('results');
+        };
+
+        get('cancel-quiz').onclick = () => switchView('setup');
+        get('restart-btn').onclick = () => switchView('setup');
+
+    </script>
+<script type="module" src="/index.tsx"></script>
+</body>
+</html>
