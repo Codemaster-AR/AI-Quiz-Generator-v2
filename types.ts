@@ -1,10 +1,1 @@
-
-export interface Question {
-  questionText: string;
-  options: string[];
-  correctAnswer: string;
-}
-
-export interface Quiz {
-  questions: Question[];
-}
+// REMOVED: Not needed for Vanilla JS
