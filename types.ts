@@ -1,1 +1,1 @@
-// REMOVED: Not needed for Vanilla JS
+// DELETED
