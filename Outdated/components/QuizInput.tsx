@@ -39,8 +39,8 @@ const QuizInput: React.FC<QuizInputProps> = ({ onGenerate, isGenerating }) => {
 
   const handleSubmit = useCallback(async () => {
     setLocalError(null);
-     if (numQuestions < 1 || numQuestions > 500) {
-      setLocalError('Please enter a number of questions between 1 and 500.');
+     if (numQuestions < 1 || numQuestions > 50) {
+      setLocalError('Please enter a number of questions between 1 and 50.');
       return;
     }
     if (mode === 'text') {
@@ -63,7 +63,7 @@ const QuizInput: React.FC<QuizInputProps> = ({ onGenerate, isGenerating }) => {
 
   const isButtonDisabled = useMemo(() => {
     if (isGenerating || isPdfProcessing) return true;
-    if (numQuestions < 1 || numQuestions > 500) return true;
+    if (numQuestions < 1 || numQuestions > 50) return true;
     if (mode === 'text' && text.trim().length < 100) return true;
     if (mode === 'pdf' && !file) return true;
     return false;
@@ -124,15 +124,15 @@ const QuizInput: React.FC<QuizInputProps> = ({ onGenerate, isGenerating }) => {
                               if (isNaN(num)) {
                                   setNumQuestions(1);
                               } else {
-                                  setNumQuestions(Math.floor(Math.max(1, Math.min(500, num))));
+                                  setNumQuestions(Math.floor(Math.max(1, Math.min(50, num))));
                               }
                           }}
                           min="1"
-                          max="500"
+                          max="50"
                           className="w-full p-3 bg-slate-900 border border-slate-700 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200"
                           aria-describedby="num-questions-description"
                       />
-                      <p id="num-questions-description" className="text-xs text-slate-500 mt-1">Enter a number between 1 and 500.</p>
+                      <p id="num-questions-description" className="text-xs text-slate-500 mt-1">Enter a number between 1 and 50.</p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">

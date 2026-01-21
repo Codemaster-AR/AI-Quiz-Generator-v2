@@ -1,5 +1,5 @@
 {
-  "name": "AI-Quiz-Generator-v2",
+  "name": "Copy of AI Quiz Generator",
   "description": "An intelligent quiz generator that creates multiple-choice questions from user-provided text or PDF documents using the Gemini API.",
   "requestFramePermissions": []
 }
